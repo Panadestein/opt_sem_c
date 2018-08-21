@@ -40,24 +40,17 @@ int main() {
  
 	double data[ndat][4];
 
-        while ( (n < ndat) && (!feof(f2)))
+        while (n < ndat)
         {
         fscanf(f2, "%le %le %le %le", &data[n][0], &data[n][1], &data[n][2], &data[n][3]);
         ++n;
         }
 
-        if ( (!feof(f2)) && (n == ndat))
-        {
-        printf("Error: file too large for array\n");
-        }
-
 	fclose(f2);
 
-        printf("%le\n", data[0][0]);
-    
         for (int i = 0; i < n; ++i)
 	{
-	printf("%d: %d, %d, %d, %d\n", i, data[n][0], data[n][1], data[n][2], data[n][3]);
+	printf("%d: %le, %le, %le, %le\n", i, data[n][0], data[n][1], data[n][2], data[n][3]);
 	}
 
 	return 0;
