@@ -1,4 +1,5 @@
 #include <nlopt.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -17,9 +18,10 @@ double opt_me(unsigned n, const double *x, double *grad)
 
 int main(void)
 {
+    int i = 0, ch = 0, ndat = 0, idxmin;
     double pdev = 0.7;
+    double mineab = HUGE_VAL;
     FILE * fp;
-    int n = 0, ch = 0, ndat = 0;
  
     fp = fopen("./inp_ab.txt", "r");
     if (fp == NULL)
@@ -33,12 +35,16 @@ int main(void)
 
     rewind(fp);
 
-    double data[ndat][4];
+    double data[ndat][3];
+    double e_ab[ndat];
 
-    while (n < ndat) {
-    fscanf(fp, "%lf %lf %lf %lf", &data[n][0], &data[n][1], &data[n][2], &data[n][3]);
-    printf("%le %le %le %le\n", data[n][0], data[n][1], data[n][2], data[n][3]);
-    ++n;
+    while (i < ndat) {
+    fscanf(fp, "%lf %lf %lf %lf", &data[i][0], &data[i][1], &data[i][2], &e_ab[i]);
+    if (e_ab[i] < mineab) {
+    mineab = e_ab[i];
+    idxmin = i;
+    }
+    ++i;
     }
 
     fclose(fp);
