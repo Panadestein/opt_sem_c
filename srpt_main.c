@@ -37,12 +37,12 @@ int main() {
         ndat++;
         }
         }
-        
+ 
 	double data[ndat][4];
 
         while ( (n < ndat) && (!feof(f2)))
         {
-        fscanf(f2, "%d %d %d %d\n", &data[n][0], &data[n][1], &data[n][2], &data[n][3]);
+        fscanf(f2, "%le %le %le %le", &data[n][0], &data[n][1], &data[n][2], &data[n][3]);
         ++n;
         }
 
@@ -52,12 +52,11 @@ int main() {
         }
 
 	fclose(f2);
-    
-        printf("I am here\n");
 
+        printf("%le\n", data[0][0]);
+    
         for (int i = 0; i < n; ++i)
 	{
-        printf("Now here\n");
 	printf("%d: %d, %d, %d, %d\n", i, data[n][0], data[n][1], data[n][2], data[n][3]);
 	}
 
