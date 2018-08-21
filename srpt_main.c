@@ -15,44 +15,33 @@ double opt_me(unsigned n, const double *x, double *grad)
 }
 */
 
-int main() {
-        double pdev = 0.7;
-        int ndat = 0;
-        int ch = 0;
-        int n = 0;
-	
-	FILE * f2 = fopen("inp_ab.txt", "r");
-
-	if (!f2)		
-	{
-        printf("Error: file could not be opened\n");
-        return EXIT_FAILURE;
-        }
-
-        while (!feof(f2))
-        {
-        ch = fgetc(f2);
-        if (ch == '\n')
-        {
-        ndat++;
-        }
-        }
+int main(void)
+{
+    double pdev = 0.7;
+    FILE * fp;
+    int n = 0, ch = 0, ndat = 0;
  
-	double data[ndat][4];
+    fp = fopen("./inp_ab.txt", "r");
+    if (fp == NULL)
+        exit(EXIT_FAILURE);
+    
+    while ( (ch = fgetc(fp)) != EOF) {
+    if (ch == '\n') {
+    ndat++;
+    }
+    }
 
-        while (n < ndat)
-        {
-        fscanf(f2, "%le %le %le %le", &data[n][0], &data[n][1], &data[n][2], &data[n][3]);
-        ++n;
-        }
+    rewind(fp);
 
-	fclose(f2);
+    double data[ndat][4];
 
-        for (int i = 0; i < n; ++i)
-	{
-	printf("%d: %le, %le, %le, %le\n", i, data[n][0], data[n][1], data[n][2], data[n][3]);
-	}
+    while (n < ndat) {
+    fscanf(fp, "%lf %lf %lf %lf", &data[n][0], &data[n][1], &data[n][2], &data[n][3]);
+    printf("%le %le %le %le\n", data[n][0], data[n][1], data[n][2], data[n][3]);
+    ++n;
+    }
 
-	return 0;
+    fclose(fp);
+
+    return 0;
 }
-
