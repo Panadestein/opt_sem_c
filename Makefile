@@ -1,8 +1,14 @@
 # A very simple Makefile for the project
 
-build:
-	g++ srpt_main.c -o srpt -lnlopt -lm
-run:
+all: srpt
+
+srpt: srpt_main.c
+	gcc -g $< -o $@ -lnlopt -lm
+
+.PHONY: run clean
+
+run: srpt
 	./srpt
+
 clean:
 	rm -f ./srpt ./inp_semp/*

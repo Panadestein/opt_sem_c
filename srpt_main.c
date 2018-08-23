@@ -3,22 +3,23 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-/*
-  double opt_me(unsigned n, const double *x, double *grad)
+double opt_me(unsigned n, const double *x, double *grad, void *func_data)
   {
   double e_srp = [1000];
 
-  FILE * f1 = fopen("mopac_parameter", "w");
-
-  fclose(f1);
+  FILE * fs;
+  fs = fopen("mopac_parameter", "w");
+  if (fs == NULL) exit(EXIT_FAILURE);
+  fclose(fs);
 
   return target;
   }
-*/
 
 int main(void)
 {
-	int i = 0, ch = 0;
+	// Input files processing and variable initialization
+
+	int i = 0, ch = 0, pardim = 0;
 	int dim = 3, ndat = 0, idxmin;
 	long length;
 	double pdev = 0.7;
@@ -89,12 +90,79 @@ int main(void)
 		fclose(fq);
 	}
 
-	for (int i = 0; i < ndat; i++) {
+	FILE * fr;
+	fr = fopen("./parameter_pm7", "r");
+	if (fr == NULL)	exit(EXIT_FAILURE);
+
+	while ( (ch = fgetc(fn)) != EOF) {
+		if (ch == '\n') {
+			pardim++;
+		}
+	}
+
+	rewind(fr);
+
+	char param_names[pardim][10];
+	char param_atoms[pardim][10];
+	double param_values[pardim];
+	double value_upper[pardim];
+	double value_lower[pardim];
+
+	i = 0;
+	while (i < pardim) {
+		fscanf(fr, "%s %s %lf", param_names[i], param_atoms[i],
+		       &param_values[i]);
+		++i;
+		if (param_values[i] >= 0) {
+			value_upper[i] = param_values[i] * (1.0 + pdev);
+			value_lower[i] = param_values[i] * (1.0 - pdev);
+		} else {
+			value_upper[i] = param_values[i] * (1.0 - pdev);
+			value_lower[i] = param_values[i] * (1.0 + pdev);
+		}
+	}
+
+	fclose(fr);
+
+	// Optimization process
+
+	int maxeval = 2000;
+	double minrms = 0.01;
+	double tol = 0.001;
+	double minf = 0.0;
+
+	nlopt_opt opt = nlopt_create(NLOPT_G_MLSL_LDS, pardim);
+	nlopt_set_local_optimizer(opt, nlopt_create(NLOPT_LN_BOBYQA, pardim));
+
+	nlopt_set_lower_bounds(opt, value_lower);
+	nlopt_set_upper_bounds(opt, value_upper);
+
+	nlopt_set_min_objective(opt, opt_me, NULL);
+	nlopt_set_maxeval(opt, maxeval);
+	nlopt_set_stopval(opt, minrms);
+	nlopt_set_ftol_abs(opt, tol);
+
+	int dbg = nlopt_optimize(opt, param_values, &minf);
+
+	if (dbg < 0) {
+		fprintf(stderr, "%s:%d %s -> Nlopt C function failed: %d expected: %d\n",
+		        __FILE__, __LINE__, __FUNCTION__, dbg, NLOPT_SUCCESS);
+	} else {
+		printf("minimum: f(%lf, %lf) = %lf\n",
+		       param_values[0], param_values[1], minf);
+	}
+
+	// Cleaning up stuff
+
+	nlopt_destroy(opt);
+
+	for (i = 0; i < ndat; i++) {
 		free(data[i]);
 	}
 
 	free(buffer);
 	free(data);
+
 	return 0;
 }
 
