@@ -1,19 +1,56 @@
-#include <nlopt.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <nlopt.h>
 
-double opt_me(unsigned n, const double *x, double *grad, void *func_data)
-  {
-  double e_srp = [1000];
+double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
+{
+	int run;
+	double e_srp[ndat];
+	double energy;
+	double sumsq = 0.0;
+	char callmop[0x100];
 
-  FILE * fs;
-  fs = fopen("mopac_parameter", "w");
-  if (fs == NULL) exit(EXIT_FAILURE);
-  fclose(fs);
+	FILE * fs;
+	fs = fopen("mopac_parameter", "w");
+	if (fs == NULL) exit(EXIT_FAILURE);
+	for (unsigned i = 0; i < pardim; ++i) {
+		fprintf(fs, "%s %s %d\n", param_names[i], param_atoms[i], x[i]);
+	}
+	fclose(fs);
 
-  return target;
-  }
+	for (int i = 0; i < ndat; ++i) {
+		snprintf(callmop, sizeof(callmop),
+		         "/home/ramon/bin/MOPACMINE/MOPAC2016.exe  \
+                 ./inp_semp/geo_%d.mop", i);
+	}
+
+	for (int i = 0; i < ndat; ++i) {
+		energy = NAN;
+		char line[] = "TOTAL ENERGY";
+		char tmp[500];
+		char outfile[500];
+	    FILE * ft;
+		snprintf(outfile, sizeof(outfile), "./inp_semp/geo_%d.out", i);
+	    ft = fopen(outfile, "r");
+	    if (ft == NULL) exit(EXIT_FAILURE);
+	    while (fgets(tmp, 500, ft) != NULL) {
+		    if ((strstr(tmp, line)) != NULL) {
+			    sscanf(tmp, "%*s %*s %lf", &energy);
+		    }
+	    }
+	    fclose(ft);
+	    e_srp[i] = energy;
+	}
+
+	for (int i = 0; i < ndat; ++i) {
+		e_srp[i] = e_srp[i] - e_srp[idxmin];
+		sumsq += (e_srp[i] - e_ab[i]) * (e_srp[i] - e_ab[i])
+	}
+
+	return sqrt(sumsq/ndat);
+}
 
 int main(void)
 {
@@ -145,8 +182,8 @@ int main(void)
 	int dbg = nlopt_optimize(opt, param_values, &minf);
 
 	if (dbg < 0) {
-		fprintf(stderr, "%s:%d %s -> Nlopt C function failed: %d expected: %d\n",
-		        __FILE__, __LINE__, __FUNCTION__, dbg, NLOPT_SUCCESS);
+		fprintf(stderr, "%s:%d %s -> Nlopt C function failed: %d expected: %d\n"
+		        ,__FILE__ , __LINE__, __FUNCTION__, dbg, NLOPT_SUCCESS);
 	} else {
 		printf("minimum: f(%lf, %lf) = %lf\n",
 		       param_values[0], param_values[1], minf);
