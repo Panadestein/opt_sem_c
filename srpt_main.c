@@ -4,19 +4,43 @@
 #include <string.h>
 #include <nlopt.h>
 
+
+typedef struct {
+	int ndat, idxmin, pardim;
+	double *e_ab;
+	char **param_names;
+	char **param_atoms;
+} DATAFUNC;
+
+
 double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 {
+	DATAFUNC *fd = (DATAFUNC *) func_data;
+	int ndat = fd->ndat;
+	int idxmin = fd->idxmin;
 	int run;
 	double e_srp[ndat];
+	double e_ab[ndat];
 	double energy;
 	double sumsq = 0.0;
 	char callmop[0x100];
+	char param_names[pardim][10];
+	char param_atoms[pardim][10];
+
+	for (unsigned i = 0; i < pardim; ++i) {
+		strcpy(param_names[i], fd->param_names[i]);
+		strcpy(param_atoms[i], fd->param_atoms[i]);
+	}
+
+	for (int i = 0; i < ndat; ++i) {
+		e_ab[i] = fd->e_ab[i];
+	}
 
 	FILE * fs;
 	fs = fopen("mopac_parameter", "w");
 	if (fs == NULL) exit(EXIT_FAILURE);
 	for (unsigned i = 0; i < pardim; ++i) {
-		fprintf(fs, "%s %s %d\n", param_names[i], param_atoms[i], x[i]);
+		fprintf(fs, "%s %s %lf\n", param_names[i], param_atoms[i], x[i]);
 	}
 	fclose(fs);
 
@@ -31,22 +55,22 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 		char line[] = "TOTAL ENERGY";
 		char tmp[500];
 		char outfile[500];
-	    FILE * ft;
+		FILE * ft;
 		snprintf(outfile, sizeof(outfile), "./inp_semp/geo_%d.out", i);
-	    ft = fopen(outfile, "r");
-	    if (ft == NULL) exit(EXIT_FAILURE);
-	    while (fgets(tmp, 500, ft) != NULL) {
-		    if ((strstr(tmp, line)) != NULL) {
-			    sscanf(tmp, "%*s %*s %lf", &energy);
-		    }
-	    }
-	    fclose(ft);
-	    e_srp[i] = energy;
+		ft = fopen(outfile, "r");
+		if (ft == NULL) exit(EXIT_FAILURE);
+		while (fgets(tmp, 500, ft) != NULL) {
+			if ((strstr(tmp, line)) != NULL) {
+				sscanf(tmp, "%*s %*s %lf", &energy);
+			}
+		}
+		fclose(ft);
+		e_srp[i] = energy;
 	}
 
 	for (int i = 0; i < ndat; ++i) {
 		e_srp[i] = e_srp[i] - e_srp[idxmin];
-		sumsq += (e_srp[i] - e_ab[i]) * (e_srp[i] - e_ab[i])
+		sumsq += (e_srp[i] - e_ab[i]) * (e_srp[i] - e_ab[i]);
 	}
 
 	return sqrt(sumsq/ndat);
@@ -56,8 +80,10 @@ int main(void)
 {
 	// Input files processing and variable initialization
 
-	int i = 0, ch = 0, pardim = 0;
-	int dim = 3, ndat = 0, idxmin;
+	DATAFUNC func_data = {.ndat = 0, .pardim = 0};
+
+	int i = 0, ch = 0;
+	int dim = 3;
 	long length;
 	double pdev = 0.7;
 	double ** data;
@@ -70,15 +96,15 @@ int main(void)
 
 	while ( (ch = fgetc(fn)) != EOF) {
 		if (ch == '\n') {
-			ndat++;
+			func_data.ndat++;
 		}
 	}
 
 	rewind(fn);
 
-	double e_ab[ndat];
-	data = (double **)  malloc(ndat * sizeof(double));
-	for (int i = 0; i < ndat; i++) {
+	func_data.e_ab = malloc(func_data.ndat * sizeof(func_data.e_ab));
+	data = (double **)  malloc(func_data.ndat * sizeof(double));
+	for (int i = 0; i < func_data.ndat; i++) {
 		data[i] = (double *) malloc(dim * sizeof(double));
 	}
 
@@ -87,20 +113,20 @@ int main(void)
 		exit(0);
 	}
 
-	while (i < ndat) {
+	while (i < func_data.ndat) {
 		fscanf(fn, "%lf %lf %lf %lf", &data[i][0], &data[i][1], &data[i][2],
-		       &e_ab[i]);
-		if (e_ab[i] < mineab) {
-			mineab = e_ab[i];
-			idxmin = i;
+		       &func_data.e_ab[i]);
+		if (func_data.e_ab[i] < mineab) {
+			mineab = func_data.e_ab[i];
+			func_data.idxmin = i;
 		}
 		++i;
 	}
 
 	fclose(fn);
 
-	for (i = 0; i < ndat; i++) {
-		e_ab[i] -= mineab;
+	for (i = 0; i < func_data.ndat; i++) {
+		func_data.e_ab[i] -= mineab;
 	}
 
 	FILE * fp = fopen("./naf_geo.xyz", "r");
@@ -114,7 +140,7 @@ int main(void)
 	}
 	fclose(fp);
 
-	for (i = 0; i < ndat; ++i) {
+	for (i = 0; i < func_data.ndat; ++i) {
 		char buf[0x100];
 		snprintf(buf, sizeof(buf), "./inp_semp/geo_%d.mop", i);
 		FILE * fq = fopen(buf, "w");
@@ -133,22 +159,29 @@ int main(void)
 
 	while ( (ch = fgetc(fn)) != EOF) {
 		if (ch == '\n') {
-			pardim++;
+			func_data.pardim++;
 		}
 	}
 
 	rewind(fr);
 
-	char param_names[pardim][10];
-	char param_atoms[pardim][10];
-	double param_values[pardim];
-	double value_upper[pardim];
-	double value_lower[pardim];
+	func_data.param_names = (char **)  malloc(func_data.pardim * sizeof(char));
+	for (int i = 0; i < func_data.pardim; i++) {
+		func_data.param_names[i] = (char *) malloc(10 * sizeof(double));
+	}
+	func_data.param_atoms = (char **)  malloc(func_data.pardim * sizeof(char));
+	for (int i = 0; i < func_data.pardim; i++) {
+		func_data.param_atoms[i] = (char *) malloc(10 * sizeof(double));
+	}
+
+	double param_values[func_data.pardim];
+	double value_upper[func_data.pardim];
+	double value_lower[func_data.pardim];
 
 	i = 0;
-	while (i < pardim) {
-		fscanf(fr, "%s %s %lf", param_names[i], param_atoms[i],
-		       &param_values[i]);
+	while (i < func_data.pardim) {
+		fscanf(fr, "%s %s %lf", func_data.param_names[i],
+		       func_data.param_atoms[i], &param_values[i]);
 		++i;
 		if (param_values[i] >= 0) {
 			value_upper[i] = param_values[i] * (1.0 + pdev);
@@ -163,13 +196,14 @@ int main(void)
 
 	// Optimization process
 
-	int maxeval = 2000;
+	int maxeval = 1;
 	double minrms = 0.01;
 	double tol = 0.001;
 	double minf = 0.0;
 
-	nlopt_opt opt = nlopt_create(NLOPT_G_MLSL_LDS, pardim);
-	nlopt_set_local_optimizer(opt, nlopt_create(NLOPT_LN_BOBYQA, pardim));
+	nlopt_opt opt = nlopt_create(NLOPT_G_MLSL_LDS, func_data.pardim);
+	nlopt_set_local_optimizer(opt, nlopt_create(NLOPT_LN_BOBYQA,
+	                                            func_data.pardim));
 
 	nlopt_set_lower_bounds(opt, value_lower);
 	nlopt_set_upper_bounds(opt, value_upper);
@@ -193,12 +227,15 @@ int main(void)
 
 	nlopt_destroy(opt);
 
-	for (i = 0; i < ndat; i++) {
+	for (i = 0; i < func_data.ndat; i++) {
 		free(data[i]);
 	}
 
 	free(buffer);
 	free(data);
+	free(func_data.e_ab);
+	free(func_data.param_names);
+	free(func_data.param_atoms);
 
 	return 0;
 }
