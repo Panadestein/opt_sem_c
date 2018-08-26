@@ -8,8 +8,8 @@
 typedef struct {
 	int ndat, idxmin, pardim;
 	double *e_ab;
-	char **param_names;
-	char **param_atoms;
+	char (*param_names)[10];
+	char (*param_atoms)[10];
 } DATAFUNC;
 
 
@@ -23,6 +23,7 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 	double e_ab[ndat];
 	double energy;
 	double sumsq = 0.0;
+	double target;
 	char callmop[0x100];
 	char param_names[pardim][10];
 	char param_atoms[pardim][10];
@@ -38,7 +39,8 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 
 	FILE * fs;
 	fs = fopen("mopac_parameter", "w");
-	if (fs == NULL) exit(EXIT_FAILURE);
+	if (!fs)
+		exit(EXIT_FAILURE);
 	for (unsigned i = 0; i < pardim; ++i) {
 		fprintf(fs, "%s %s %lf\n", param_names[i], param_atoms[i], x[i]);
 	}
@@ -46,8 +48,9 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 
 	for (int i = 0; i < ndat; ++i) {
 		snprintf(callmop, sizeof(callmop),
-		         "/home/ramon/bin/MOPACMINE/MOPAC2016.exe  \
-                 ./inp_semp/geo_%d.mop", i);
+		         "/home/rpanades/bin/MOPACMINE/MOPAC2016.exe \
+                  ./inp_semp/geo_%d.mop", i);
+		run = system(callmop);
 	}
 
 	for (int i = 0; i < ndat; ++i) {
@@ -58,14 +61,15 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 		FILE * ft;
 		snprintf(outfile, sizeof(outfile), "./inp_semp/geo_%d.out", i);
 		ft = fopen(outfile, "r");
-		if (ft == NULL) exit(EXIT_FAILURE);
+		if (!ft)
+			exit(EXIT_FAILURE);
 		while (fgets(tmp, 500, ft) != NULL) {
 			if ((strstr(tmp, line)) != NULL) {
-				sscanf(tmp, "%*s %*s %lf", &energy);
+				sscanf(tmp, "%*s %*s %*s %lf %*s", &energy);
 			}
 		}
 		fclose(ft);
-		e_srp[i] = energy;
+		e_srp[i] = energy * 8.065544005e3;
 	}
 
 	for (int i = 0; i < ndat; ++i) {
@@ -73,7 +77,14 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 		sumsq += (e_srp[i] - e_ab[i]) * (e_srp[i] - e_ab[i]);
 	}
 
-	return sqrt(sumsq/ndat);
+	target = sumsq / ndat;
+
+	FILE * fu;
+	fu = fopen("rms_values", "a");
+	fprintf(fu, "%lf\n", target);
+	fclose(fu);
+
+	return target;
 }
 
 int main(void)
@@ -92,8 +103,8 @@ int main(void)
 
 	FILE * fn;
 	fn = fopen("./inp_ab.txt", "r");
-	if (fn == NULL)	exit(EXIT_FAILURE);
-
+	if (!fn)
+		exit(EXIT_FAILURE);
 	while ( (ch = fgetc(fn)) != EOF) {
 		if (ch == '\n') {
 			func_data.ndat++;
@@ -103,7 +114,7 @@ int main(void)
 	rewind(fn);
 
 	func_data.e_ab = malloc(func_data.ndat * sizeof(func_data.e_ab));
-	data = (double **)  malloc(func_data.ndat * sizeof(double));
+	data = (double **)  malloc(func_data.ndat * sizeof(double*));
 	for (int i = 0; i < func_data.ndat; i++) {
 		data[i] = (double *) malloc(dim * sizeof(double));
 	}
@@ -130,7 +141,8 @@ int main(void)
 	}
 
 	FILE * fp = fopen("./naf_geo.xyz", "r");
-	if (fp == NULL) exit(EXIT_FAILURE);
+	if (!fp)
+		exit(EXIT_FAILURE);
 	fseek(fp, 0L, SEEK_END);
 	length = ftell(fp);
 	rewind(fp);
@@ -155,8 +167,8 @@ int main(void)
 
 	FILE * fr;
 	fr = fopen("./parameter_pm7", "r");
-	if (fr == NULL)	exit(EXIT_FAILURE);
-
+	if (!fr)
+		exit(EXIT_FAILURE);
 	while ( (ch = fgetc(fn)) != EOF) {
 		if (ch == '\n') {
 			func_data.pardim++;
@@ -165,36 +177,30 @@ int main(void)
 
 	rewind(fr);
 
-	func_data.param_names = (char **)  malloc(func_data.pardim
-	                                          * sizeof(char *));
-	for (int i = 0; i < func_data.pardim; i++) {
-		func_data.param_names[i] = (char *) malloc(10 * sizeof(char));
-	}
-	func_data.param_atoms = (char **)  malloc(func_data.pardim
-	                                          * sizeof(char *));
-	for (int i = 0; i < func_data.pardim; i++) {
-		func_data.param_atoms[i] = (char *) malloc(10 * sizeof(char));
-	}
+	func_data.param_names = malloc(func_data.pardim * 10 * sizeof(char));
+	func_data.param_atoms = malloc(func_data.pardim * 10 * sizeof(char));
 
 	double param_values[func_data.pardim];
 	double value_upper[func_data.pardim];
 	double value_lower[func_data.pardim];
 
-	i = 0;
-	while (i < func_data.pardim) {
+	for (int i = 0; i < func_data.pardim; ++i) {
 		fscanf(fr, "%s %s %lf", func_data.param_names[i],
 		       func_data.param_atoms[i], &param_values[i]);
-		++i;
-		if (param_values[i] >= 0) {
-			value_upper[i] = param_values[i] * (1.0 + pdev);
-			value_lower[i] = param_values[i] * (1.0 - pdev);
-		} else {
-			value_upper[i] = param_values[i] * (1.0 - pdev);
-			value_lower[i] = param_values[i] * (1.0 + pdev);
-		}
+
+		int tmp = (param_values[i] >= 0 ? pdev : -pdev);
+		value_upper[i] = param_values[i] * (1.0 + tmp);
+		value_lower[i] = param_values[i] * (1.0 - tmp);
 	}
 
 	fclose(fr);
+
+	FILE * fv;
+	fv = fopen("e_ab.txt", "w");
+	for (int i = 0; i < func_data.ndat; ++i) {
+		fprintf(fv,"%lf\n", func_data.e_ab[i]);
+	}
+	fclose(fv);
 
 	// Optimization process
 
@@ -221,8 +227,12 @@ int main(void)
 		fprintf(stderr, "%s:%d %s -> Nlopt C function failed: %d expected: %d\n"
 		        ,__FILE__ , __LINE__, __FUNCTION__, dbg, NLOPT_SUCCESS);
 	} else {
-		printf("minimum: f(%lf, %lf) = %lf\n",
-		       param_values[0], param_values[1], minf);
+		printf("Found minimum %lf\n", minf);
+		printf("At this point:\n");
+		for (int i = 0; i < func_data.pardim; ++i) {
+			printf("%lf\n",param_values[i]);
+		}
+
 	}
 
 	// Cleaning up stuff

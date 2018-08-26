@@ -11,4 +11,4 @@ run: srpt
 	./srpt
 
 clean:
-	rm -f ./srpt ./inp_semp/*
+	rm -f ./srpt ./inp_semp/* mopac_parameter rms_values
