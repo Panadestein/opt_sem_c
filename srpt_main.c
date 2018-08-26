@@ -165,13 +165,15 @@ int main(void)
 
 	rewind(fr);
 
-	func_data.param_names = (char **)  malloc(func_data.pardim * sizeof(char));
+	func_data.param_names = (char **)  malloc(func_data.pardim
+	                                          * sizeof(char *));
 	for (int i = 0; i < func_data.pardim; i++) {
-		func_data.param_names[i] = (char *) malloc(10 * sizeof(double));
+		func_data.param_names[i] = (char *) malloc(10 * sizeof(char));
 	}
-	func_data.param_atoms = (char **)  malloc(func_data.pardim * sizeof(char));
+	func_data.param_atoms = (char **)  malloc(func_data.pardim
+	                                          * sizeof(char *));
 	for (int i = 0; i < func_data.pardim; i++) {
-		func_data.param_atoms[i] = (char *) malloc(10 * sizeof(double));
+		func_data.param_atoms[i] = (char *) malloc(10 * sizeof(char));
 	}
 
 	double param_values[func_data.pardim];
@@ -208,7 +210,7 @@ int main(void)
 	nlopt_set_lower_bounds(opt, value_lower);
 	nlopt_set_upper_bounds(opt, value_upper);
 
-	nlopt_set_min_objective(opt, opt_me, NULL);
+	nlopt_set_min_objective(opt, opt_me, &func_data);
 	nlopt_set_maxeval(opt, maxeval);
 	nlopt_set_stopval(opt, minrms);
 	nlopt_set_ftol_abs(opt, tol);
