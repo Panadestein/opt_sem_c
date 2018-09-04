@@ -38,7 +38,7 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 	}
 
 	FILE * fs;
-	fs = fopen("mopac_parameter", "w");
+	fs = fopen("mopac_parameter", "w+");
 	if (!fs)
 		exit(EXIT_FAILURE);
 	for (unsigned i = 0; i < pardim; ++i) {
@@ -46,6 +46,7 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 	}
 	fclose(fs);
 
+	#pragma omp for
 	for (int i = 0; i < ndat; ++i) {
 		snprintf(callmop, sizeof(callmop),
 		         "/home/rpanades/bin/MOPACMINE/MOPAC2016.exe \
@@ -72,8 +73,10 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 		e_srp[i] = energy * 8.065544005e3;
 	}
 
+	double minesrp = e_srp[idxmin];
+
 	for (int i = 0; i < ndat; ++i) {
-		e_srp[i] = e_srp[i] - e_srp[idxmin];
+		e_srp[i] -= minesrp;
 		sumsq += (e_srp[i] - e_ab[i]) * (e_srp[i] - e_ab[i]);
 	}
 
@@ -83,6 +86,13 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 	fu = fopen("rms_values", "a");
 	fprintf(fu, "%lf\n", target);
 	fclose(fu);
+
+	FILE * fx;
+	fx = fopen("e_srp", "a");
+	for (int i = 0; i < ndat; ++i) {
+		fprintf(fx, "%lf\n", e_srp[i]);
+	}
+	fclose(fx);
 
 	return target;
 }
@@ -188,15 +198,16 @@ int main(void)
 		fscanf(fr, "%s %s %lf", func_data.param_names[i],
 		       func_data.param_atoms[i], &param_values[i]);
 
-		int tmp = (param_values[i] >= 0 ? pdev : -pdev);
+		double tmp = (param_values[i] >= 0 ? pdev : -pdev);
 		value_upper[i] = param_values[i] * (1.0 + tmp);
 		value_lower[i] = param_values[i] * (1.0 - tmp);
+		printf("%lf %lf\n", value_lower[i], value_upper[i]);
 	}
 
 	fclose(fr);
 
 	FILE * fv;
-	fv = fopen("e_ab.txt", "w");
+	fv = fopen("e_ab", "w");
 	for (int i = 0; i < func_data.ndat; ++i) {
 		fprintf(fv,"%lf\n", func_data.e_ab[i]);
 	}
@@ -204,10 +215,10 @@ int main(void)
 
 	// Optimization process
 
-	int maxeval = 1;
+	int maxeval = 3;
 	double minrms = 0.01;
 	double tol = 0.001;
-	double minf = 0.0;
+	double minf;
 
 	nlopt_opt opt = nlopt_create(NLOPT_G_MLSL_LDS, func_data.pardim);
 	nlopt_set_local_optimizer(opt, nlopt_create(NLOPT_LN_BOBYQA,
