@@ -80,7 +80,7 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 		sumsq += (e_srp[i] - e_ab[i]) * (e_srp[i] - e_ab[i]);
 	}
 
-	target = sumsq / ndat;
+	target = sqrt(sumsq / ndat);
 
 	FILE * fu;
 	fu = fopen("rms_values", "a");
