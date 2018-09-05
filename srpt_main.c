@@ -19,13 +19,11 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 	DATAFUNC *fd = (DATAFUNC *) func_data;
 	int ndat = fd->ndat;
 	int idxmin = fd->idxmin;
-	int run;
 	double e_srp[ndat];
 	double e_ab[ndat];
 	double energy;
 	double sumsq = 0.0;
 	double target;
-	char callmop[0x100];
 	char param_names[pardim][10];
 	char param_atoms[pardim][10];
 
@@ -47,14 +45,15 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 	}
 	fclose(fs);
 
-	#pragma omp for
+	#pragma omp parallel for
 	for (int i = 0; i < ndat; ++i) {
+		char callmop[0x100];
 		snprintf(callmop, sizeof(callmop),
 		         "/home/rpanades/bin/MOPACMINE/MOPAC2016.exe \
                   ./inp_semp/geo_%d.mop", i);
-		printf("Thread rank: %d\n", omp_get_thread_num());
-		printf("N threads %d\n", omp_get_num_threads());
-		run = system(callmop);
+		int run = system(callmop);
+		printf("TR NT run %d %d %d\n", omp_get_thread_num(),
+		       omp_get_num_threads(), run);
 	}
 
 	for (int i = 0; i < ndat; ++i) {
