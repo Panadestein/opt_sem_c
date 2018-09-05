@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <omp.h>
 #include <nlopt.h>
 
 
@@ -51,6 +52,8 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 		snprintf(callmop, sizeof(callmop),
 		         "/home/rpanades/bin/MOPACMINE/MOPAC2016.exe \
                   ./inp_semp/geo_%d.mop", i);
+		printf("Thread rank: %d\n", omp_get_thread_num());
+		printf("N threads %d\n", omp_get_num_threads());
 		run = system(callmop);
 	}
 

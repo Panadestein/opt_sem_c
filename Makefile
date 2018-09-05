@@ -3,7 +3,7 @@
 all: srpt
 
 srpt: srpt_main.c
-	gcc -g $< -o $@ -lnlopt -lm
+	gcc -fopenmp -g $< -o $@ -lnlopt -lm
 
 .PHONY: run clean
 
