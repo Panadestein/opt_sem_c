@@ -1,10 +1,8 @@
 #include <math.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <omp.h>
 #include <nlopt.h>
-
+#include "systems.h"
 
 typedef struct {
 	int ndat, idxmin, pardim;
@@ -50,10 +48,8 @@ double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 		char callmop[0x100];
 		snprintf(callmop, sizeof(callmop),
 		         "/home/rpanades/bin/MOPACMINE/MOPAC2016.exe \
-                  ./inp_semp/geo_%d.mop", i);
+                  ./inp_semp/geo_%d.mop &>/dev/null", i);
 		int run = system(callmop);
-		printf("TR NT run %d %d %d\n", omp_get_thread_num(),
-		       omp_get_num_threads(), run);
 	}
 
 	for (int i = 0; i < ndat; ++i) {
@@ -106,12 +102,9 @@ int main(void)
 	DATAFUNC func_data = {.ndat = 0, .pardim = 0};
 
 	int i = 0, ch = 0;
-	int dim = 3;
-	long length;
 	double pdev = 0.7;
 	double ** data;
 	double mineab = HUGE_VAL;
-	char * buffer = 0;
 
 	FILE * fn;
 	fn = fopen("./inp_ab.txt", "r");
@@ -136,14 +129,15 @@ int main(void)
 		exit(0);
 	}
 
-	while (i < func_data.ndat) {
-		fscanf(fn, "%lf %lf %lf %lf", &data[i][0], &data[i][1], &data[i][2],
-		       &func_data.e_ab[i]);
+	for (int i = 0; i < func_data.ndat; ++i) {
+		for (int j = 0; j < dim; ++j) {
+			fscanf(fn, "%lf", &data[i][j]);
+		}
+		fscanf(fn, "%lf", &func_data.e_ab[i]);
 		if (func_data.e_ab[i] < mineab) {
 			mineab = func_data.e_ab[i];
 			func_data.idxmin = i;
 		}
-		++i;
 	}
 
 	fclose(fn);
@@ -152,30 +146,7 @@ int main(void)
 		func_data.e_ab[i] -= mineab;
 	}
 
-	FILE * fp = fopen("./naf_geo.xyz", "r");
-	if (!fp)
-		exit(EXIT_FAILURE);
-	fseek(fp, 0L, SEEK_END);
-	length = ftell(fp);
-	rewind(fp);
-	buffer = (char *) malloc((length+1) * sizeof(char));
-	if (buffer) {
-		fread(buffer, sizeof(char), length, fp);
-	}
-	fclose(fp);
-
-	for (i = 0; i < func_data.ndat; ++i) {
-		char buf[0x100];
-		snprintf(buf, sizeof(buf), "./inp_semp/geo_%d.mop", i);
-		FILE * fq = fopen(buf, "w");
-		fprintf(fq, "pm7 charge=0 1scf EXTERNAL=mopac_parameter\n");
-		fprintf(fq, "Dumb title rule\n");
-		fprintf(fq, " \n");
-		fprintf(fq, "Ar %f %f %f\n", data[i][0], data[i][1], data[i][2]);
-		fputs(buffer, fq);
-		fprintf(fq, " ");
-		fclose(fq);
-	}
+	gen_srpgeo(func_data.ndat, data);
 
 	FILE * fr;
 	fr = fopen("./parameter_pm7", "r");
@@ -203,7 +174,6 @@ int main(void)
 		double tmp = (param_values[i] >= 0 ? pdev : -pdev);
 		value_upper[i] = param_values[i] * (1.0 + tmp);
 		value_lower[i] = param_values[i] * (1.0 - tmp);
-		printf("%lf %lf\n", value_lower[i], value_upper[i]);
 	}
 
 	fclose(fr);
@@ -256,7 +226,6 @@ int main(void)
 		free(data[i]);
 	}
 
-	free(buffer);
 	free(data);
 	free(func_data.e_ab);
 	free(func_data.param_names);
