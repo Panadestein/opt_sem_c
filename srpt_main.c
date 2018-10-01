@@ -1,7 +1,5 @@
 #include <math.h>
-#include <string.h>
 #include <omp.h>
-#include <nlopt.h>
 #include "systems.h"
 
 typedef struct {
@@ -10,7 +8,6 @@ typedef struct {
 	char (*param_names)[10];
 	char (*param_atoms)[10];
 } DATAFUNC;
-
 
 double opt_me(unsigned pardim, const double *x, double *grad, void *func_data)
 {
@@ -102,7 +99,6 @@ int main(void)
 	DATAFUNC func_data = {.ndat = 0, .pardim = 0};
 
 	int i = 0, ch = 0;
-	double pdev = 0.7;
 	double ** data;
 	double mineab = HUGE_VAL;
 
@@ -149,7 +145,7 @@ int main(void)
 	gen_srpgeo(func_data.ndat, data);
 
 	FILE * fr;
-	fr = fopen("./parameter_pm7", "r");
+	fr = fopen("./parameter_ref", "r");
 	if (!fr)
 		exit(EXIT_FAILURE);
 	while ( (ch = fgetc(fn)) != EOF) {
@@ -187,15 +183,11 @@ int main(void)
 
 	// Optimization process
 
-	int maxeval = 3;
-	double minrms = 0.01;
-	double tol = 0.001;
 	double minf;
 
-	nlopt_opt opt = nlopt_create(NLOPT_G_MLSL_LDS, func_data.pardim);
-	nlopt_set_local_optimizer(opt, nlopt_create(NLOPT_LN_BOBYQA,
+	nlopt_opt opt = nlopt_create(global_alg, func_data.pardim);
+	nlopt_set_local_optimizer(opt, nlopt_create(local_alg,
 	                                            func_data.pardim));
-
 	nlopt_set_lower_bounds(opt, value_lower);
 	nlopt_set_upper_bounds(opt, value_upper);
 
@@ -233,4 +225,3 @@ int main(void)
 
 	return 0;
 }
-

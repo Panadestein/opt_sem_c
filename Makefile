@@ -1,4 +1,4 @@
-# A very simple Makefile for the project
+# A simple Makefile for the project
 
 all: srpt
 
