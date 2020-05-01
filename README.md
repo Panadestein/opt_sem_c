@@ -6,4 +6,4 @@ It should be also noticed that the variables *dim* (which represents the dimensi
 
 This package depends on the non-linear optimization library [NLopt](https://github.com/stevengj/nlopt), so please refer to its reference for information about the algorithms, termination conditions and other fit related questions.
 
-For more details adress to the original article Front. Chem. doi: 10.3389/fchem.2019.00576 
+For more details please refer to the original article: Front. Chem. doi: 10.3389/fchem.2019.00576 
