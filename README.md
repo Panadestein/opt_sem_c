@@ -1,4 +1,4 @@
-# srpt_c
+# opt_sem_c
 
 The main program (*srpt_main.c*) contains the bulk of the optimization procedure. Definition of the MOPAC geometries for the system of interest and automatic generation of them can be set up in the header file (*systems.h*), as this is the most system-dependent part of the process, it can be easily extended with some basic *C programming language* knowledge, so you can add new systems. 
 
